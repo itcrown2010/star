@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>太阳系运行</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background-color: #000;
+    }
+    canvas {
+      display: block;
+    }
+    #info {
+      position: absolute;
+      top: 10px;
+      width: 100%;
+      text-align: center;
+      color: white;
+      font-family: Arial, sans-serif;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">太阳系运行</div>
+  <canvas id="solarSystem"></canvas>
+  
+  <script>
+    // 获取canvas元素和上下文
+    const canvas = document.getElementById('solarSystem');
+    const ctx = canvas.getContext('2d');
+    
+    // 设置canvas尺寸为浏览器窗口尺寸
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    
+    // 定义太阳系参数
+    const solarSystem = {
+      sun: {
+        name: '太阳',
+        radius: 40,
+        color: '#FFFF00',
+        x: canvas.width / 2,
+        y: canvas.height / 2
+      },
+      planets: [
+        {
+          name: '水星',
+          radius: 5,
+          distance: 70,      // 半长轴
+          eccentricity: 0.2, // 离心率，水星的离心率是太阳系中最大的
+          inclination: 7,    // 轨道倾角(度)
+          color: '#A97142',
+          speed: 0.04,
+          angle: 0,
+          rotationSpeed: 0.017, // 水星自转慢，约58.6天一周
+          axialTilt: 0.03      // 轴倾角几乎为0
+        },
+        {
+          name: '金星',
+          radius: 12,
+          distance: 100,
+          eccentricity: 0.007, // 金星的轨道几乎是圆形
+          inclination: 3.4,
+          color: '#FFC649',
+          speed: 0.015,
+          angle: Math.PI / 4,
+          rotationSpeed: -0.004, // 金星自转是逆行的，很慢
+          axialTilt: 177.3       // 金星的轴倾角很大，几乎倒置
+        },
+        {
+          name: '地球',
+          radius: 13,
+          distance: 140,
+          eccentricity: 0.017, // 地球轨道接近圆形
+          inclination: 0,       // 参考平面
+          color: '#2E68C0',
+          speed: 0.01,
+          angle: Math.PI / 2,
+          rotationSpeed: 0.04,   // 地球自转速度较快
+          axialTilt: 23.44,      // 地球的轴倾角 23.44°
+          moons: [
+            {
+              name: '月球',
+              radius: 3,
+              distance: 22,
+              eccentricity: 0.055, // 月球轨道的离心率
+              inclination: 5.14,    // 月球轨道相对于地球轨道的倾角
+              color: '#CCCCCC',
+              speed: 0.03,
+              angle: 0,
+              rotationSpeed: 0.01,
+              tidalLocked: true    // 月球是潮汐锁定的
+            }
+          ]
+        },
+        {
+          name: '火星',
+          radius: 7,
+          distance: 180,
+          eccentricity: 0.093, // 火星轨道的离心率较大
+          inclination: 1.85,
+          color: '#C1440E',
+          speed: 0.008,
+          angle: 3 * Math.PI / 4,
+          rotationSpeed: 0.038, // 火星自转周期约24.6小时
+          axialTilt: 25.19     // 火星的轴倾角类似地球
+        },
+        {
+          name: '木星',
+          radius: 30,
+          distance: 260,
+          eccentricity: 0.048, 
+          inclination: 1.3,
+          color: '#E3A857',
+          speed: 0.004,
+          angle: Math.PI,
+          rotationSpeed: 0.09,  // 木星自转非常快，不到10小时
+          axialTilt: 3.13,      // 木星的轴倾角很小
+          moons: [
+            {
+              name: '木卫一',
+              radius: 3,
+              distance: 40,
+              eccentricity: 0.004,
+              inclination: 0.04,
+              color: '#DDDDDD',
+              speed: 0.03,
+              angle: 0,
+              rotationSpeed: 0.01,
+              tidalLocked: true
+            },
+            {
+              name: '木卫二',
+              radius: 4,
+              distance: 50,
+              eccentricity: 0.009,
+              inclination: 0.47,
+              color: '#EEEEEE',
+              speed: 0.02,
+              angle: Math.PI,
+              rotationSpeed: 0.01,
+              tidalLocked: true
+            }
+          ]
+        },
+        {
+          name: '土星',
+          radius: 25,
+          distance: 340,
+          eccentricity: 0.056,
+          inclination: 2.48,
+          color: '#EAD6B8',
+          speed: 0.003,
+          angle: 5 * Math.PI / 4,
+          rotationSpeed: 0.084, // 土星自转也很快
+          axialTilt: 26.73,    // 土星有较大的轴倾角
+          rings: {
+            innerRadius: 33,
+            outerRadius: 45,
+            color: 'rgba(234, 214, 184, 0.6)',
+            inclination: 26.73 // 环与行星轴倾角一致
+          }
+        },
+        {
+          name: '天王星',
+          radius: 20,
+          distance: 400,
+          eccentricity: 0.046,
+          inclination: 0.77,
+          color: '#5AC0C0',
+          speed: 0.0015,
+          angle: 3 * Math.PI / 2,
+          rotationSpeed: 0.06, // 天王星自转周期约17小时
+          axialTilt: 97.77,   // 天王星的轴倾角接近90度，几乎是"侧躺"的
+          rings: {
+            innerRadius: 25,
+            outerRadius: 32,
+            color: 'rgba(90, 192, 192, 0.4)',
+            inclination: 97.77
+          }
+        },
+        {
+          name: '海王星',
+          radius: 19,
+          distance: 450,
+          eccentricity: 0.009,
+          inclination: 1.77,
+          color: '#3E66AA',
+          speed: 0.001,
+          angle: 7 * Math.PI / 4,
+          rotationSpeed: 0.065, // 海王星自转周期约16小时
+          axialTilt: 28.32     // 海王星的轴倾角
+        }
+      ]
+    };
+    
+    // 创建星空背景
+    const stars = [];
+    function createStars() {
+      for (let i = 0; i < 500; i++) {
+        stars.push({
+          x: Math.random() * canvas.width,
+          y: Math.random() * canvas.height,
+          radius: Math.random() * 1.5,
+          brightness: Math.random()
+        });
+      }
+    }
+    
+    // 绘制星空
+    function drawStars() {
+      ctx.save();
+      stars.forEach(star => {
+        ctx.beginPath();
+        ctx.arc(star.x, star.y, star.radius, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(255, 255, 255, ${star.brightness})`;
+        ctx.fill();
+      });
+      ctx.restore();
+    }
+    
+    // 绘制带有立体效果的圆形
+    function draw3DSphere(x, y, radius, color) {
+      // 创建径向渐变，从亮色到基本色再到暗色
+      const baseColor = color;
+      let r = parseInt(baseColor.slice(1, 3), 16);
+      let g = parseInt(baseColor.slice(3, 5), 16);
+      let b = parseInt(baseColor.slice(5, 7), 16);
+      
+      // 高光颜色 - 更亮
+      const highlightColor = `rgb(${Math.min(r + 80, 255)}, ${Math.min(g + 80, 255)}, ${Math.min(b + 80, 255)})`;
+      // 阴影颜色 - 更暗
+      const shadowColor = `rgb(${Math.max(r - 80, 0)}, ${Math.max(g - 80, 0)}, ${Math.max(b - 80, 0)})`;
+      
+      // 创建径向渐变
+      const gradient = ctx.createRadialGradient(
+        x - radius * 0.3, y - radius * 0.3, radius * 0.1,
+        x, y, radius
+      );
+      
+      gradient.addColorStop(0, highlightColor);
+      gradient.addColorStop(0.5, baseColor);
+      gradient.addColorStop(1, shadowColor);
+      
+      // 绘制球体
+      ctx.beginPath();
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      
+      // 添加高光点
+      ctx.beginPath();
+      ctx.arc(x - radius * 0.3, y - radius * 0.3, radius * 0.15, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.fill();
+    }
+    
+    // 计算椭圆轨道上的位置
+    function calculateEllipticalPosition(planet, centralX, centralY) {
+      // 半长轴
+      const a = planet.distance;
+      // 半短轴 = a * sqrt(1 - e²)
+      const b = a * Math.sqrt(1 - Math.pow(planet.eccentricity, 2));
+      // 焦距 = a * e
+      const c = a * planet.eccentricity;
+      
+      // 参数方程角度
+      const theta = planet.angle;
+      
+      // 根据参数方程计算椭圆上的点
+      // x = a * cos(theta)
+      // y = b * sin(theta)
+      let x = centralX + a * Math.cos(theta);
+      let y = centralY + b * Math.sin(theta);
+      
+      // 应用轨道倾角
+      if (planet.inclination) {
+        // 倾角(弧度)
+        const inclinationRad = (planet.inclination || 0) * Math.PI / 180;
+        
+        // 只修改y坐标来模拟倾角
+        // 实际上是沿着x轴旋转轨道
+        y = centralY + (b * Math.sin(theta)) * Math.cos(inclinationRad);
+      }
+      
+      return { x, y };
+    }
+    
+    // 绘制椭圆轨道
+    function drawEllipticalOrbit(centralX, centralY, a, b, inclination, color) {
+      ctx.save();
+      
+      // 旋转上下文以展示轨道倾角
+      ctx.translate(centralX, centralY);
+      ctx.rotate(inclination * Math.PI / 180);
+      ctx.translate(-centralX, -centralY);
+      
+      // 绘制椭圆轨道
+      ctx.beginPath();
+      ctx.ellipse(centralX, centralY, a, b, 0, 0, Math.PI * 2);
+      ctx.strokeStyle = color || 'rgba(255, 255, 255, 0.2)';
+      ctx.stroke();
+      
+      ctx.restore();
+    }
+    
+    // 绘制行星
+    function drawPlanet(planet, x, y) {
+      ctx.save();
+      
+      // 绘制轨道 - 使用椭圆而不是圆形
+      const a = planet.distance;
+      const b = a * Math.sqrt(1 - Math.pow(planet.eccentricity, 2));
+      const inclinationRad = (planet.inclination || 0) * Math.PI / 180;
+      
+      drawEllipticalOrbit(
+        solarSystem.sun.x, 
+        solarSystem.sun.y, 
+        a, 
+        b * Math.cos(inclinationRad),
+        planet.inclination,
+        'rgba(255, 255, 255, 0.2)'
+      );
+      
+      // 行星阴影 - 从太阳方向投射
+      const sunDx = solarSystem.sun.x - x;
+      const sunDy = solarSystem.sun.y - y;
+      const shadowAngle = Math.atan2(sunDy, sunDx);
+      
+      // 绘制行星阴影
+      ctx.beginPath();
+      ctx.arc(
+        x + Math.cos(shadowAngle) * (planet.radius * 0.2),
+        y + Math.sin(shadowAngle) * (planet.radius * 0.2),
+        planet.radius + 5,
+        0,
+        Math.PI * 2
+      );
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fill();
+      
+      // 保存上下文以便应用轴倾角
+      ctx.save();
+      
+      // 应用行星轴倾角
+      if (planet.axialTilt) {
+        // 转换为弧度
+        const tiltRad = planet.axialTilt * Math.PI / 180;
+        // 计算倾角方向 - 确保倾向太阳的方向合理
+        const tiltDirection = Math.atan2(y - solarSystem.sun.y, x - solarSystem.sun.x) + Math.PI/2;
+        
+        ctx.translate(x, y);
+        ctx.rotate(tiltDirection);
+        ctx.rotate(tiltRad);
+        ctx.translate(-x, -y);
+      }
+      
+      // 绘制3D行星
+      draw3DSphere(x, y, planet.radius, planet.color);
+      
+      // 如果需要展示自转轴，可以绘制一条线
+      if (planet.axialTilt) {
+        const axisLength = planet.radius * 1.5;
+        ctx.beginPath();
+        ctx.moveTo(x, y - axisLength);
+        ctx.lineTo(x, y + axisLength);
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.lineWidth = 0.5;
+        ctx.stroke();
+      }
+      
+      // 恢复上下文
+      ctx.restore();
+      
+      // 绘制行星名称
+      ctx.font = '12px Arial';
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.fillText(planet.name, x, y - planet.radius - 5);
+      
+      // 绘制行星环（如果有）
+      if (planet.rings) {
+        // 椭圆环 - 考虑行星轴倾角
+        const tiltAngle = Math.atan2(y - solarSystem.sun.y, x - solarSystem.sun.x) + Math.PI / 2;
+        const ringTilt = (planet.rings.inclination || planet.axialTilt) * Math.PI / 180;
+        const effectiveTilt = tiltAngle + ringTilt;
+        
+        // 计算环的可见度（基于视角）
+        const viewAngle = Math.abs(Math.sin(effectiveTilt));
+        
+        ctx.beginPath();
+        ctx.ellipse(
+          x, y, 
+          planet.rings.outerRadius, 
+          planet.rings.outerRadius * Math.max(0.1, viewAngle), 
+          tiltAngle, 0, Math.PI * 2
+        );
+        ctx.strokeStyle = planet.rings.color;
+        ctx.lineWidth = planet.rings.outerRadius - planet.rings.innerRadius;
+        ctx.stroke();
+        
+        // 添加环的阴影
+        ctx.beginPath();
+        ctx.ellipse(
+          x, y, 
+          planet.rings.innerRadius, 
+          planet.rings.innerRadius * Math.max(0.1, viewAngle), 
+          tiltAngle + Math.PI/10, 0, Math.PI * 2
+        );
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.3)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
+      
+      // 绘制卫星（如果有）
+      if (planet.moons) {
+        const tiltAngle = Math.atan2(y - solarSystem.sun.y, x - solarSystem.sun.x) + Math.PI / 2;
+        
+        planet.moons.forEach(moon => {
+          // 考虑卫星轨道的倾角和离心率
+          const moonA = moon.distance;
+          const moonB = moonA * Math.sqrt(1 - Math.pow(moon.eccentricity || 0, 2));
+          const moonInclinationRad = (moon.inclination || 0) * Math.PI / 180;
+          
+          // 绘制卫星轨道 - 考虑倾角
+          ctx.save();
+          ctx.translate(x, y);
+          ctx.rotate(tiltAngle);
+          ctx.rotate(moonInclinationRad);
+          ctx.scale(1, Math.cos(moonInclinationRad));
+          ctx.beginPath();
+          ctx.ellipse(0, 0, moonA, moonB, 0, 0, Math.PI * 2);
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+          ctx.stroke();
+          ctx.restore();
+          
+          // 计算卫星位置 - 考虑椭圆轨道
+          let moonX, moonY;
+          if (moon.tidalLocked) {
+            // 如果卫星是潮汐锁定的，始终面向行星的同一面
+            moonX = x + moonA * Math.cos(moon.angle);
+            moonY = y + moonB * Math.sin(moon.angle) * Math.cos(moonInclinationRad);
+            
+            // 添加适当的旋转以确保卫星始终面向行星
+            const moonDirection = Math.atan2(moonY - y, moonX - x);
+            
+            ctx.save();
+            ctx.translate(moonX, moonY);
+            ctx.rotate(moonDirection + Math.PI); // 旋转卫星使其面朝行星
+            ctx.translate(-moonX, -moonY);
+          } else {
+            // 计算常规轨道位置
+            moonX = x + moonA * Math.cos(moon.angle);
+            moonY = y + moonB * Math.sin(moon.angle) * Math.cos(moonInclinationRad);
+          }
+          
+          // 绘制3D卫星
+          draw3DSphere(moonX, moonY, moon.radius, moon.color);
+          
+          if (moon.tidalLocked) {
+            ctx.restore();
+          }
+          
+          // 更新卫星位置
+          moon.angle += moon.speed;
+        });
+      }
+      
+      ctx.restore();
+    }
+    
+    // 绘制太阳
+    function drawSun() {
+      ctx.save();
+      
+      // 太阳外部柔和光晕
+      const outerGlow = ctx.createRadialGradient(
+        solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius * 0.9,
+        solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius * 4
+      );
+      outerGlow.addColorStop(0, 'rgba(255, 180, 0, 0.6)');
+      outerGlow.addColorStop(0.5, 'rgba(255, 60, 0, 0.1)');
+      outerGlow.addColorStop(1, 'rgba(255, 0, 0, 0)');
+      
+      ctx.beginPath();
+      ctx.arc(solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius * 4, 0, Math.PI * 2);
+      ctx.fillStyle = outerGlow;
+      ctx.fill();
+      
+      // 太阳内部渐变
+      const sunGradient = ctx.createRadialGradient(
+        solarSystem.sun.x, solarSystem.sun.y, 0,
+        solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius
+      );
+      sunGradient.addColorStop(0, '#FFF7D6');  // 中心接近白色
+      sunGradient.addColorStop(0.5, '#FFF200'); // 黄色区域
+      sunGradient.addColorStop(0.8, '#FFA200'); // 橙色区域
+      sunGradient.addColorStop(1, '#FF6600');   // 红橙色边缘
+      
+      ctx.beginPath();
+      ctx.arc(solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius, 0, Math.PI * 2);
+      ctx.fillStyle = sunGradient;
+      ctx.fill();
+      
+      // 添加太阳纹理
+      const time = Date.now() / 2000; // 降低速度
+      
+      // 随机"太阳黑子"
+      ctx.globalCompositeOperation = 'multiply';
+      for (let i = 0; i < 8; i++) {
+        const angle = time / 3 + i * Math.PI / 4;
+        const distance = solarSystem.sun.radius * 0.6 * Math.sin(time / 5 + i);
+        const spotX = solarSystem.sun.x + Math.cos(angle) * distance;
+        const spotY = solarSystem.sun.y + Math.sin(angle) * distance;
+        const spotSize = solarSystem.sun.radius * (0.05 + 0.04 * Math.sin(time + i * 2));
+        
+        const spotGradient = ctx.createRadialGradient(
+          spotX, spotY, 0,
+          spotX, spotY, spotSize
+        );
+        spotGradient.addColorStop(0, 'rgba(180, 50, 0, 0.4)');
+        spotGradient.addColorStop(1, 'rgba(255, 150, 0, 0)');
+        
+        ctx.beginPath();
+        ctx.arc(spotX, spotY, spotSize, 0, Math.PI * 2);
+        ctx.fillStyle = spotGradient;
+        ctx.fill();
+      }
+      ctx.globalCompositeOperation = 'source-over';
+      
+      // 添加太阳名称
+      ctx.font = '14px Arial';
+      ctx.fillStyle = 'white';
+      ctx.textAlign = 'center';
+      ctx.fillText(solarSystem.sun.name, solarSystem.sun.x, solarSystem.sun.y - solarSystem.sun.radius - 10);
+      
+      ctx.restore();
+    }
+    
+    // 更新和绘制整个太阳系
+    let lastTime = 0;
+    function update(currentTime) {
+      // 计算时间增量（毫秒转为秒）
+      const deltaTime = (currentTime - lastTime) / 1000 || 0.016;
+      lastTime = currentTime;
+      
+      // 清除画布
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // 绘制星空背景
+      drawStars();
+      
+      // 绘制太阳
+      drawSun();
+      
+      // 对行星按距离排序，确保前后关系正确
+      const sortedPlanets = [...solarSystem.planets].sort((a, b) => {
+        // 计算行星与太阳连线的垂直分量
+        const aY = Math.sin(a.angle) * a.distance;
+        const bY = Math.sin(b.angle) * b.distance;
+        return aY - bY;
+      });
+      
+      // 绘制所有行星
+      sortedPlanets.forEach(planet => {
+        // 计算行星椭圆轨道上的位置
+        const position = calculateEllipticalPosition(planet, solarSystem.sun.x, solarSystem.sun.y);
+        
+        // 绘制行星
+        drawPlanet(planet, position.x, position.y);
+        
+        // 更新行星位置 - 使用deltaTime使运动更加平滑
+        const speedFactor = deltaTime || 0.016; // 如果deltaTime为0，使用默认值
+        planet.angle += planet.speed * speedFactor * 20; // 乘以20加快运动
+        
+        // 更新行星的自转 - 考虑真实自转速度差异
+        if (planet.rotationSpeed) {
+          planet.rotation = (planet.rotation || 0) + planet.rotationSpeed * speedFactor * 20;
+        }
+      });
+      
+      // 继续动画循环
+      requestAnimationFrame(update);
+    }
+    
+    // 窗口大小调整事件
+    window.addEventListener('resize', () => {
+      canvas.width = window.innerWidth;
+      canvas.height = window.innerHeight;
+      solarSystem.sun.x = canvas.width / 2;
+      solarSystem.sun.y = canvas.height / 2;
+      
+      // 重新生成星星
+      stars.length = 0;
+      createStars();
+    });
+    
+    // 添加拖动功能
+    let isDragging = false;
+    let dragStartX = 0;
+    let dragStartY = 0;
+    
+    canvas.addEventListener('mousedown', (e) => {
+      isDragging = true;
+      dragStartX = e.clientX;
+      dragStartY = e.clientY;
+    });
+    
+    canvas.addEventListener('mousemove', (e) => {
+      if (isDragging) {
+        const deltaX = e.clientX - dragStartX;
+        const deltaY = e.clientY - dragStartY;
+        
+        solarSystem.sun.x += deltaX;
+        solarSystem.sun.y += deltaY;
+        
+        dragStartX = e.clientX;
+        dragStartY = e.clientY;
+      }
+    });
+    
+    canvas.addEventListener('mouseup', () => {
+      isDragging = false;
+    });
+    
+    canvas.addEventListener('mouseleave', () => {
+      isDragging = false;
+    });
+    
+    // 添加缩放功能
+    canvas.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      
+      const scaleFactor = e.deltaY > 0 ? 0.9 : 1.1;
+      
+      solarSystem.planets.forEach(planet => {
+        planet.distance *= scaleFactor;
+        planet.radius *= scaleFactor;
+        
+        if (planet.moons) {
+          planet.moons.forEach(moon => {
+            moon.distance *= scaleFactor;
+            moon.radius *= scaleFactor;
+          });
+        }
+        
+        if (planet.rings) {
+          planet.rings.innerRadius *= scaleFactor;
+          planet.rings.outerRadius *= scaleFactor;
+        }
+      });
+      
+      solarSystem.sun.radius *= scaleFactor;
+    });
+    
+    // 初始化星空
+    createStars();
+    
+    // 开始动画循环 - 传入时间参数
+    requestAnimationFrame(update);
+  </script>
+</body>
+</html> 
