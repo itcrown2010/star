@@ -2,7 +2,7 @@
 <html lang="zh">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>太阳系运行</title>
   <style>
     body {
@@ -232,6 +232,75 @@
       70% { box-shadow: 0 0 0 10px rgba(100, 180, 255, 0); }
       100% { box-shadow: 0 0 0 0 rgba(100, 180, 255, 0); }
     }
+    
+    /* 移动设备适配样式 */
+    @media (max-width: 768px) {
+      #control-panel {
+        width: 120px;
+        font-size: 90%;
+        right: 5px;
+        top: 5px;
+        padding: 8px;
+      }
+      
+      #toggle-controls {
+        right: 135px;
+        top: 5px;
+        font-size: 11px;
+        padding: 3px 6px;
+      }
+      
+      #music-control {
+        right: 135px;
+        top: 35px;
+        font-size: 11px;
+        padding: 3px 6px;
+      }
+      
+      #volume-control {
+        right: 135px;
+        top: 65px;
+        width: 60px;
+        height: 5px;
+      }
+      
+      #planet-info {
+        width: 200px;
+        max-height: 200px;
+        font-size: 90%;
+        bottom: 5px;
+        left: 5px;
+      }
+      
+      .control-title {
+        font-size: 12px;
+      }
+      
+      .checkbox-label {
+        font-size: 11px;
+      }
+      
+      #time-info {
+        font-size: 11px;
+        top: 5px;
+        left: 5px;
+        padding: 6px 8px;
+      }
+      
+      #historical-event {
+        font-size: 11px;
+        top: 35px;
+        left: 5px;
+        max-width: 200px;
+      }
+      
+      #interaction-tips {
+        font-size: 10px;
+        max-width: 120px;
+        bottom: 5px;
+        right: 5px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -250,6 +319,9 @@
     <p>滚轮: 缩放</p>
     <p>点击: 查看详情</p>
     <p>双击: 以行星为中心</p>
+    <p>触摸: 单指移动视图</p>
+    <p>双指: 缩放视图</p>
+    <p>双指点击: 以行星为中心</p>
   </div>
   
   <!-- 隐藏/显示控制面板按钮 -->
@@ -1892,6 +1964,194 @@
     
     // 开始动画循环
     requestAnimationFrame(update);
+    
+    // 添加触摸事件支持
+    let lastTouchDistance = 0;
+    let touchStartTime = 0;
+    let touchHasMoved = false;
+    
+    canvas.addEventListener('touchstart', (e) => {
+      touchStartTime = Date.now();
+      touchHasMoved = false;
+      
+      if (e.touches.length === 1) {
+        // 单指触摸 - 相当于鼠标按下
+        isDragging = true;
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        // 双指触摸 - 准备缩放
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        lastTouchDistance = Math.sqrt(dx * dx + dy * dy);
+      }
+      e.preventDefault(); // 防止页面滚动
+    }, { passive: false });
+    
+    canvas.addEventListener('touchmove', (e) => {
+      touchHasMoved = true;
+      
+      if (e.touches.length === 1 && isDragging) {
+        // 单指移动 - 相当于拖动
+        const deltaX = e.touches[0].clientX - dragStartX;
+        const deltaY = e.touches[0].clientY - dragStartY;
+        
+        solarSystem.sun.x += deltaX;
+        solarSystem.sun.y += deltaY;
+        
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+      } else if (e.touches.length === 2) {
+        // 双指移动 - 处理缩放
+        const dx = e.touches[0].clientX - e.touches[1].clientX;
+        const dy = e.touches[0].clientY - e.touches[1].clientY;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // 计算缩放比例
+        const scaleFactor = distance / lastTouchDistance;
+        lastTouchDistance = distance;
+        
+        // 应用缩放
+        if (scaleFactor !== 1 && scaleFactor > 0.5 && scaleFactor < 2) {
+          solarSystem.planets.forEach(planet => {
+            planet.distance *= scaleFactor;
+            planet.radius *= scaleFactor;
+            
+            if (planet.moons) {
+              planet.moons.forEach(moon => {
+                moon.distance *= scaleFactor;
+                moon.radius *= scaleFactor;
+              });
+            }
+            
+            if (planet.rings) {
+              planet.rings.innerRadius *= scaleFactor;
+              planet.rings.outerRadius *= scaleFactor;
+            }
+          });
+          
+          solarSystem.sun.radius *= scaleFactor;
+          
+          // 小行星带也需要缩放
+          solarSystem.asteroidBelt.innerRadius *= scaleFactor;
+          solarSystem.asteroidBelt.outerRadius *= scaleFactor;
+          
+          // 特殊天体也需要缩放
+          for (const key in specialBodies) {
+            if (specialBodies.hasOwnProperty(key)) {
+              specialBodies[key].distance *= scaleFactor;
+              specialBodies[key].radius *= scaleFactor;
+            }
+          }
+        }
+      }
+      e.preventDefault(); // 防止页面滚动
+    }, { passive: false });
+    
+    canvas.addEventListener('touchend', (e) => {
+      // 判断是否为点击（短暂触摸且没有明显移动）
+      const touchEndTime = Date.now();
+      const touchDuration = touchEndTime - touchStartTime;
+      
+      // 如果是短触摸且没有明显移动，视为点击
+      if (touchDuration < 300 && !touchHasMoved && e.changedTouches.length === 1) {
+        const x = e.changedTouches[0].clientX;
+        const y = e.changedTouches[0].clientY;
+        
+        // 首先检查是否点击了太阳
+        if (isPointInPlanet(x, y, solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius)) {
+          solarSystem.selectedObject = solarSystem.sun;
+          updatePlanetInfo(solarSystem.sun);
+        } else {
+          // 然后检查是否点击了行星
+          let clicked = false;
+          solarSystem.planets.forEach(planet => {
+            const position = calculateEllipticalPosition(planet, solarSystem.sun.x, solarSystem.sun.y);
+            if (isPointInPlanet(x, y, position.x, position.y, planet.radius)) {
+              solarSystem.selectedObject = planet;
+              updatePlanetInfo(planet);
+              clicked = true;
+            }
+          });
+          
+          // 如果没点击任何行星或太阳，则隐藏信息面板
+          if (!clicked && !isPointInPlanet(x, y, solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius)) {
+            solarSystem.selectedObject = null;
+            document.getElementById('planet-info').style.display = 'none';
+          }
+        }
+      }
+      
+      if (e.touches.length === 0) {
+        isDragging = false;
+      } else if (e.touches.length === 1) {
+        // 从双指变为单指，重置拖动起点
+        dragStartX = e.touches[0].clientX;
+        dragStartY = e.touches[0].clientY;
+      }
+      e.preventDefault();
+    }, { passive: false });
+    
+    canvas.addEventListener('touchcancel', (e) => {
+      isDragging = false;
+      e.preventDefault();
+    }, { passive: false });
+    
+    // 监听设备方向变化
+    window.addEventListener('orientationchange', function() {
+      // 延迟处理以确保新尺寸已应用
+      setTimeout(() => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        solarSystem.sun.x = canvas.width / 2;
+        solarSystem.sun.y = canvas.height / 2;
+        
+        // 重新生成星星
+        stars.length = 0;
+        createStars();
+      }, 300);
+    });
+    
+    // 添加双指点击功能，替代移动设备上的双击
+    let lastTapTime = 0;
+    let doubleTapTimer = null;
+    let lastTapX = 0;
+    let lastTapY = 0;
+    
+    canvas.addEventListener('touchstart', (e) => {
+      if (e.touches.length === 2) {
+        // 获取双指中心点
+        const centerX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+        const centerY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+        
+        // 检查是否双指点击了太阳
+        if (isPointInPlanet(centerX, centerY, solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius)) {
+          setFocusObject(solarSystem.sun);
+          e.preventDefault();
+          return;
+        }
+        
+        // 检查是否双指点击了行星
+        let planetFocused = false;
+        solarSystem.planets.forEach(planet => {
+          const position = calculateEllipticalPosition(planet, solarSystem.sun.x, solarSystem.sun.y);
+          if (isPointInPlanet(centerX, centerY, position.x, position.y, planet.radius)) {
+            setFocusObject(planet);
+            planetFocused = true;
+            e.preventDefault();
+          }
+        });
+        
+        // 如果双指点击空白区域，恢复以太阳为中心
+        if (!planetFocused && !isPointInPlanet(centerX, centerY, solarSystem.sun.x, solarSystem.sun.y, solarSystem.sun.radius)) {
+          setFocusObject(null);
+          // 将视图重置为以太阳为中心
+          solarSystem.sun.x = canvas.width / 2;
+          solarSystem.sun.y = canvas.height / 2;
+          e.preventDefault();
+        }
+      }
+    }, { passive: false });
   </script>
 </body>
 </html> 
